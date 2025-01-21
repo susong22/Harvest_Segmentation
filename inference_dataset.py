@@ -34,6 +34,10 @@ if __name__ == '__main__':
         # cityscapes only -> use dataloader that returns full resolution images
         data_loader = add_data_loader[0]
     n_classes = data_loader.dataset.n_classes_without_void
+    
+    print(f"n_classes_without_void: {data_loader.dataset.n_classes_without_void}")
+    print(f"n_classes: {data_loader.dataset.n_classes}")
+
 
     # model and checkpoint loading
     model, device = build_model(args, n_classes=n_classes)
@@ -71,7 +75,7 @@ if __name__ == '__main__':
 
                 pred = F.interpolate(pred, (image_h, image_w),
                                      mode='bilinear', align_corners=False)
-                pred = torch.max(pred, 1)[1] + 1
+                pred = torch.max(pred, 1)[1]
                 pred = pred.cpu().numpy().squeeze().astype(np.uint8)
                 for i in range(args.batch_size):
                     pred_colored = data_loader.dataset.color_label(pred[i])

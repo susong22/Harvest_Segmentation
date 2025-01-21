@@ -14,38 +14,31 @@ import numpy as np
 from torch import nn
 import torch
 
-
 class CrossEntropyLoss2d(nn.Module):
     def __init__(self, device, weight):
         super(CrossEntropyLoss2d, self).__init__()
         self.weight = torch.tensor(weight).to(device)
-        self.num_classes = len(self.weight) + 1  # +1 for void
-        if self.num_classes < 2**8:
-            self.dtype = torch.uint8
-        else:
-            self.dtype = torch.int16
+        self.num_classes = len(self.weight)  # void 포함
         self.ce_loss = nn.CrossEntropyLoss(
-            torch.from_numpy(np.array(weight)).float(),
-            reduction='none',
-            ignore_index=-1
+            weight=self.weight.float(),
+            reduction='none'
         )
-        self.ce_loss.to(device)
 
     def forward(self, inputs_scales, targets_scales):
         losses = []
         for inputs, targets in zip(inputs_scales, targets_scales):
-            # mask = targets > 0
-            targets_m = targets.clone()
-            targets_m -= 1
-            loss_all = self.ce_loss(inputs, targets_m.long())
+            # 라벨 값을 그대로 사용
+            loss_all = self.ce_loss(inputs, targets.long())
 
+            # 클래스 가중치를 적용한 손실 계산
             number_of_pixels_per_class = \
-                torch.bincount(targets.flatten().type(self.dtype),
+                torch.bincount(targets.flatten().to(torch.int64),
                                minlength=self.num_classes)
             divisor_weighted_pixel_sum = \
-                torch.sum(number_of_pixels_per_class[1:] * self.weight)   # without void
+                torch.sum(number_of_pixels_per_class * self.weight)
+
+            # 전체 손실 계산
             losses.append(torch.sum(loss_all) / divisor_weighted_pixel_sum)
-            # losses.append(torch.sum(loss_all) / torch.sum(mask.float()))
 
         return losses
 
@@ -54,18 +47,15 @@ class CrossEntropyLoss2dForValidData:
     def __init__(self, device, weight, weighted_pixel_sum):
         super(CrossEntropyLoss2dForValidData, self).__init__()
         self.ce_loss = nn.CrossEntropyLoss(
-            torch.from_numpy(np.array(weight)).float(),
-            reduction='sum',
-            ignore_index=-1
+            weight=torch.tensor(weight).float().to(device),
+            reduction='sum'
         )
-        self.ce_loss.to(device)
         self.weighted_pixel_sum = weighted_pixel_sum
         self.total_loss = 0
 
     def add_loss_of_batch(self, inputs, targets):
-        targets_m = targets.clone()
-        targets_m -= 1
-        loss = self.ce_loss(inputs, targets_m.long())
+        # 라벨 값을 그대로 사용
+        loss = self.ce_loss(inputs, targets.long())
         self.total_loss += loss
 
     def compute_whole_loss(self):
@@ -74,32 +64,30 @@ class CrossEntropyLoss2dForValidData:
     def reset_loss(self):
         self.total_loss = 0
 
-
 class CrossEntropyLoss2dForValidDataUnweighted:
     def __init__(self, device):
         super(CrossEntropyLoss2dForValidDataUnweighted, self).__init__()
         self.ce_loss = nn.CrossEntropyLoss(
-            weight=None,
-            reduction='sum',
-            ignore_index=-1
+            weight=None,  # Unweighted loss
+            reduction='sum'
         )
         self.ce_loss.to(device)
         self.nr_pixels = 0
         self.total_loss = 0
 
     def add_loss_of_batch(self, inputs, targets):
-        targets_m = targets.clone()
-        targets_m -= 1
-        loss = self.ce_loss(inputs, targets_m.long())
+        # 라벨 값을 그대로 사용
+        loss = self.ce_loss(inputs, targets.long())
         self.total_loss += loss
-        self.nr_pixels += torch.sum(targets_m >= 0)  # only non void pixels
+        self.nr_pixels += torch.numel(targets)  # 모든 픽셀 포함
 
     def compute_whole_loss(self):
-        return self.total_loss.cpu().numpy().item() / self.nr_pixels.cpu().numpy().item()
+        return self.total_loss.cpu().numpy().item() / self.nr_pixels
 
     def reset_loss(self):
         self.total_loss = 0
         self.nr_pixels = 0
+
 
 
 def print_log(epoch, local_count, count_inter, dataset_size, loss, time_inter,

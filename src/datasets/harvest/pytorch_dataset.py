@@ -74,7 +74,7 @@ class Harvest(HarvestBase, DatasetBase):
 
     @property
     def n_classes_without_void(self):
-        return self._n_classes - 1
+        return self._n_classes
 
     @property
     def source_path(self):
@@ -111,7 +111,7 @@ class Harvest(HarvestBase, DatasetBase):
             data = json.load(f)
 
         # 기본값은 2 (나머지 영역)
-        height, width = 1200, 1920
+        height, width = 480, 640
         mask = np.full((height, width), 0, dtype=np.uint8)  # 기본값 2로 초기화
 
          # 라벨에 따라 값을 설정 ('field' = 1, 'machine' = 2)

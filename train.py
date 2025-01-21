@@ -89,13 +89,19 @@ def train_main():
     cameras = train_loader.dataset.cameras
     n_classes_without_void = train_loader.dataset.n_classes_without_void
     
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     print(n_classes_without_void)
+    
     if args.class_weighting != 'None':
         class_weighting = train_loader.dataset.compute_class_weights(
             weight_mode=args.class_weighting,
-            c=args.c_for_logarithmic_weighting)
+            c=args.c_for_logarithmic_weighting
+        )
+        class_weighting = np.insert(class_weighting, 0, 1.0)  # void 라벨 가중치 추가
     else:
         class_weighting = np.ones(n_classes_without_void)
+
+    print("Class weighting!!!!!!!!!!!!!!!!! : ", class_weighting)
 
     # model building -----------------------------------------------------------
     model, device = build_model(args, n_classes=n_classes_without_void)
@@ -117,6 +123,8 @@ def train_main():
     pixel_sum_valid_data = valid_loader.dataset.compute_class_weights(
         weight_mode='linear'
     )
+    # void 라벨 가중치를 추가 (기본값 1.0)
+    pixel_sum_valid_data = np.insert(pixel_sum_valid_data, 0, 1.0)
     pixel_sum_valid_data_weighted = \
         np.sum(pixel_sum_valid_data * class_weighting)
     loss_function_valid = utils.CrossEntropyLoss2dForValidData(
@@ -442,17 +450,27 @@ def validate(model, valid_loader, device, cameras, confusion_matrices,
                         mode='bilinear',
                         align_corners=False)
                     prediction = torch.argmax(prediction, dim=1)
+                    
+                    # Void 라벨을 포함하도록 수정
+                    mask = torch.ones_like(label, dtype=torch.bool)  # 모든 픽셀 사용
+                    label = torch.masked_select(label, mask)
+                    prediction = torch.masked_select(prediction, mask.to(device))
+                    
+                    
+                    print(f"Label unique values: {torch.unique(label)}")
+                    print(f"Prediction unique values: {torch.unique(prediction)}")
+
 
                     # ignore void pixels
-                    mask = label > 0
-                    label = torch.masked_select(label, mask)
-                    prediction = torch.masked_select(prediction,
-                                                     mask.to(device))
+                    # mask = label > 0
+                    # label = torch.masked_select(label, mask)
+                    # prediction = torch.masked_select(prediction,
+                    #                                  mask.to(device))
 
-                    # In the label 0 is void, but in the prediction 0 is wall.
-                    # In order for the label and prediction indices to match we
-                    # need to subtract 1 of the label.
-                    label -= 1
+                    # # In the label 0 is void, but in the prediction 0 is wall.
+                    # # In order for the label and prediction indices to match we
+                    # # need to subtract 1 of the label.
+                    # label -= 1
 
                     # copy the prediction to cpu as tensorflow's confusion
                     # matrix is faster on cpu
