@@ -9,14 +9,14 @@ from .harvest import HarvestBase
 class Harvest(HarvestBase, DatasetBase):
     def __init__(self,
                  data_dir=None,
-                 n_classes=3,
+                 n_classes=2,
                  split='train', 
                  depth_mode='raw',
                  with_input_orig=False):
         super(Harvest, self).__init__()
         # assert n_classes in self.N_CLASSES
         
-        self._n_classes = 3
+        self._n_classes = 2
         self._split = split
         self._depth_mode = depth_mode
         self._with_input_orig = with_input_orig
@@ -89,13 +89,13 @@ class Harvest(HarvestBase, DatasetBase):
         return self._with_input_orig
 
     def load_image(self, idx):
-        fp = os.path.join(self._data_dir, self._split, self.RGB_DIR, f'{self._filenames[idx]}.jpg')
+        fp = os.path.join(self._data_dir, self._split, self.RGB_DIR, f'{self._filenames[idx]}.png')
         img = cv2.imread(fp)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
 
     def load_depth(self, idx): 
-        fp = os.path.join(self._data_dir, self._split, self.DEPTH_DIR, f'{self._filenames[idx]}.jpg')
+        fp = os.path.join(self._data_dir, self._split, self.DEPTH_DIR, f'{self._filenames[idx]}.png')
         depth = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
         
         # Ensure depth is a single channel image
@@ -110,9 +110,9 @@ class Harvest(HarvestBase, DatasetBase):
         with open(json_fp) as f:
             data = json.load(f)
 
-        # 기본값은 2 (나머지 영역)
-        height, width = 480, 640
-        mask = np.full((height, width), 0, dtype=np.uint8)  # 기본값 2로 초기화
+        # 기본값은 0 (나머지 영역)
+        height, width = data['imageHeight'], data['imageWidth']
+        mask = np.full((height, width), 0, dtype=np.uint8)  # 기본값 0으로 초기화
 
          # 라벨에 따라 값을 설정 ('field' = 1, 'machine' = 2)
         for shape in data['shapes']:
@@ -121,8 +121,8 @@ class Harvest(HarvestBase, DatasetBase):
 
             if label == 'field':
                 cv2.fillPoly(mask, [points.astype(np.int32)], 1)  # field = 1
-            elif label == 'machine':
-                cv2.fillPoly(mask, [points.astype(np.int32)], 2)  # machine = 2
+            # elif label == 'machine':
+            #     cv2.fillPoly(mask, [points.astype(np.int32)], 2)  # machine = 2
 
         # 크기 조정 (interpolation 확인)
         target_height, target_width = 480, 640  # 예제 크기

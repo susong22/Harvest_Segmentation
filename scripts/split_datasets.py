@@ -20,9 +20,9 @@ def split_datasets(source_path, dest_path, train_ratio=0.8, seed=None):
         os.makedirs(os.path.join(train_path, folder), exist_ok=True)
         os.makedirs(os.path.join(test_path, folder), exist_ok=True)
 
-    # 파일 이름 패턴 설정
-    depth_pattern = r'(rotary_\d+)_depth(\d+)'  # e.g., harvest_102823_depth000030
-    rgb_pattern = r'(rotary_\d+)_left(\d+)'    # e.g., harvest_102823_left000030
+     # 파일 이름 패턴 설정 (rotary 또는 harvest로 시작)
+    depth_pattern = r'(rotary_\d+|harvest_\d+)_depth(\d+)'  # rotary_123 또는 harvest_123로 시작
+    rgb_pattern = r'(rotary_\d+|harvest_\d+)_left(\d+)'     # rotary_123 또는 harvest_123로 시작
 
     # 파일 매칭
     depth_files = [f for f in os.listdir(depth_path) if f.endswith('.png')]
@@ -36,10 +36,10 @@ def split_datasets(source_path, dest_path, train_ratio=0.8, seed=None):
 
     # 파일 세트로 매칭
     matched_files = []
-    for harvest_id, index in matched_ids:
-        depth_file = f"{harvest_id}_depth{index}.png"
-        rgb_file = f"{harvest_id}_left{index}.png"
-        label_file = f"{harvest_id}_left{index}.json"
+    for harvest_or_rotary_id, index in matched_ids:
+        depth_file = f"{harvest_or_rotary_id}_depth{index}.png"
+        rgb_file = f"{harvest_or_rotary_id}_left{index}.png"
+        label_file = f"{harvest_or_rotary_id}_left{index}.json"
         if label_file in label_files:  # labels에도 존재해야 함
             matched_files.append((depth_file, rgb_file, label_file))
 
